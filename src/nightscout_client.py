@@ -100,9 +100,12 @@ def get_entries(count: int = 10, find: Optional[dict] = None) -> list:
 
 
 def get_entries_by_range(date_from: str, date_to: str, count: int = 1000) -> list:
+    # Not all Nightscout instances populate the `dateString` field on entries
+    # (e.g. some AAPS-fed setups only emit `date` epoch-ms + `created_at` ISO).
+    # `created_at` is present in both cases and is ISO-comparable, so filter on that.
     params = {
-        "find[dateString][$gte]": date_from,
-        "find[dateString][$lte]": date_to,
+        "find[created_at][$gte]": date_from,
+        "find[created_at][$lte]": date_to,
         "count": str(count),
     }
     return _get("entries.json", params)
@@ -191,11 +194,12 @@ def get_aggregated_glucose_stats(date_from: str, date_to: str) -> dict:
     # Group readings by day
     by_day: dict[str, list] = {}
     for entry in readings:
-        if "sgv" not in entry or "dateString" not in entry:
+        ts_raw = entry.get("dateString") or entry.get("created_at")
+        if "sgv" not in entry or not ts_raw:
             continue
         try:
             ts = datetime.fromisoformat(
-                entry["dateString"].replace("Z", "+00:00")
+                ts_raw.replace("Z", "+00:00")
             )
             day_key = ts.strftime("%Y-%m-%d")
             by_day.setdefault(day_key, []).append(entry["sgv"])

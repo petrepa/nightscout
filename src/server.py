@@ -80,7 +80,7 @@ def get_current_glucose() -> dict:
         "direction": entry.get("direction"),
         "trend": entry.get("trend"),
         "noise": entry.get("noise"),
-        "timestamp": entry.get("dateString"),
+        "timestamp": entry.get("dateString") or entry.get("created_at"),
         "device": entry.get("device"),
         "type": entry.get("type"),
     }
@@ -98,7 +98,7 @@ def get_recent_glucose(count: int = 36) -> list[dict]:
         {
             "glucose_mgdl": e.get("sgv"),
             "direction": e.get("direction"),
-            "timestamp": e.get("dateString"),
+            "timestamp": e.get("dateString") or e.get("created_at"),
             "noise": e.get("noise"),
         }
         for e in entries
@@ -122,7 +122,7 @@ def get_glucose_by_date_range(date_from: str, date_to: str, count: int = 1000) -
         {
             "glucose_mgdl": e.get("sgv"),
             "direction": e.get("direction"),
-            "timestamp": e.get("dateString"),
+            "timestamp": e.get("dateString") or e.get("created_at"),
         }
         for e in entries
     ]
@@ -214,9 +214,10 @@ def get_daily_glucose_stats(date: str) -> dict:
     # Hourly breakdown
     hourly: dict[int, list] = {}
     for e in entries:
-        if "sgv" in e and "dateString" in e:
+        ts_raw = e.get("dateString") or e.get("created_at")
+        if "sgv" in e and ts_raw:
             try:
-                ts = datetime.fromisoformat(e["dateString"].replace("Z", "+00:00"))
+                ts = datetime.fromisoformat(ts_raw.replace("Z", "+00:00"))
                 hour = ts.hour
                 hourly.setdefault(hour, []).append(e["sgv"])
             except (ValueError, KeyError):
@@ -423,10 +424,11 @@ def analyze_glucose_patterns(hours: int = 168) -> dict:
     daily: dict[str, list] = {}
 
     for e in entries:
-        if "sgv" not in e or "dateString" not in e:
+        ts_raw = e.get("dateString") or e.get("created_at")
+        if "sgv" not in e or not ts_raw:
             continue
         try:
-            ts = datetime.fromisoformat(e["dateString"].replace("Z", "+00:00"))
+            ts = datetime.fromisoformat(ts_raw.replace("Z", "+00:00"))
             hourly.setdefault(ts.hour, []).append(e["sgv"])
             day = ts.strftime("%Y-%m-%d")
             daily.setdefault(day, []).append(e["sgv"])
